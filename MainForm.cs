@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Runtime.InteropServices;
+using System.Text;
 using DisplayProject.Enums;
 using DisplayProject.Helpers;
 
@@ -12,6 +13,18 @@ public partial class MainForm : Form
 
     [DllImport("user32.dll")]
     private static extern bool UnregisterHotKey(IntPtr hWnd, int id);
+
+    [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
+    private static extern IntPtr GetForegroundWindow();
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    private static extern int GetWindowText(IntPtr hWnd, StringBuilder text, int count);
+
+    [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
+    private static extern int GetWindowTextLength(IntPtr hWnd);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern bool MoveWindow(IntPtr hWnd, int X, int Y, int Width, int Height, bool Repaint);
 
     // 0x0312 Windows message processor's message number for hot key registered by the RegisterHotKey function
     // https://learn.microsoft.com/en-us/windows/win32/inputdev/wm-hotkey
@@ -69,7 +82,61 @@ public partial class MainForm : Form
 
     private void HandleRegisteredKeyPress(Keys key, KeyModifier modifier, int hotKeyId)
     {
-        msgHandler.ShowMessage($"Pressed key: {key} with modifier: {modifier}");
+        var handle = GetForegroundWindow();
+        // TODO: Replace with the new MoveWindow overload
+        var (x, y, width, height) = key switch
+        {
+            Keys.G => (100, 100, 800, 600),
+            Keys.H => (400, 400, 600, 600),
+            _ => (0, 0, 800, 600),
+        };
+        MoveWindow(handle, x, y, width, height, true);
+        msgHandler.ShowMessage(
+            $"Pressed key: {key} with modifier: {modifier}\n" +
+            $"Moving window: {GetCaptionOfActiveWindow(handle)}");
+    }
+
+    private static string GetCaptionOfActiveWindow(nint handle)
+    {
+        var strTitle = string.Empty;
+        // Obtain the length of the text   
+        var intLength = GetWindowTextLength(handle) + 1;
+        var stringBuilder = new StringBuilder(intLength);
+        if (GetWindowText(handle, stringBuilder, intLength) > 0)
+        {
+            strTitle = stringBuilder.ToString();
+        }
+        return strTitle;
+    }
+
+    /// <summary>
+    /// Move and resize a window with given window handle
+    /// </summary>
+    /// <param name="handle">The handle for the window to be moved and resized</param>
+    /// <param name="alignDirection">Direction to align to when moving & resizing</param>
+    /// <param name="resizeTo">What slice of the monitor to resize the window to</param>
+    /// <param name="horizontalNth">
+    ///     Which slice of the horizontal monitor divisions (form the left) to place window in. Starts at 0.
+    ///     e.g. To place the window in the "third horizontal third-th" of the monitor, pass in 2.
+    /// </param>
+    /// <param name="verticalNth">
+    ///     Which slice of the vertical monitor divisions (from the top) to place window in. Starts at 0.
+    ///     e.g. To place the window in the "second vertical half" aka "bottom half" of the monitor, pass in 1.
+    /// </param>
+    /// <param name="customPercentage">
+    ///     Custom percentage of the monitor width to resize to. Use when resizeTo=<see cref="ResizeTo.Custom"/>
+    /// </param>
+    /// <param name="moveType">Which monitor to move the window to. Defaults to same monitor</param>
+    /// <returns><see cref="true"/> if move and resize succeeds</returns>
+    private static bool MoveAndResizeWindow(
+        nint handle, Direction alignDirection, ResizeTo resizeTo, int horizontalNth, int verticalNth,
+        float customPercentage = 100, MoveType moveType = MoveType.SameMonitor)
+    {
+        // V2
+        if (moveType != MoveType.SameMonitor) throw new NotImplementedException("Not supported yet");
+
+        // TODO
+        throw new NotImplementedException();
     }
 
     private void MainForm_FormClosing(object? sender, FormClosingEventArgs e)
