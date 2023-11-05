@@ -1,8 +1,9 @@
 namespace DisplayProject.Enums;
 
+[Flags]
 public enum Direction
 {
-    Horizontal,
-    Vertical,
-    Both,
+    Horizontal = 1,
+    Vertical = 2,
+    Both = Horizontal | Vertical,
 }

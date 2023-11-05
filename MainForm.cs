@@ -26,6 +26,52 @@ public partial class MainForm : Form
     [DllImport("user32.dll", SetLastError = true)]
     private static extern bool MoveWindow(IntPtr hWnd, int X, int Y, int Width, int Height, bool Repaint);
 
+    // http://www.csharphelper.com/howtos/howto_size_other_application.html
+    [DllImport("user32.dll")]
+    private static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, SetWindowPosFlags uFlags);
+    [Flags]
+    private enum SetWindowPosFlags : uint
+    {
+        SynchronousWindowPosition = 0x4000,
+        DeferErase = 0x2000,
+        DrawFrame = 0x0020,
+        FrameChanged = 0x0020,
+        HideWindow = 0x0080,
+        DoNotActivate = 0x0010,
+        DoNotCopyBits = 0x0100,
+        IgnoreMove = 0x0002,
+        DoNotChangeOwnerZOrder = 0x0200,
+        DoNotRedraw = 0x0008,
+        DoNotReposition = 0x0200,
+        DoNotSendChangingEvent = 0x0400,
+        IgnoreResize = 0x0001,
+        IgnoreZOrder = 0x0004,
+        ShowWindow = 0x0040,
+    }
+
+    [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
+    static extern bool SetWindowPlacement(IntPtr hWnd, [In] ref WINDOWPLACEMENT lpwndpl);
+
+    [StructLayout(LayoutKind.Sequential)]
+    struct RECT
+    {
+        public int left;
+        public int top;
+        public int right;
+        public int bottom;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    struct WINDOWPLACEMENT
+    {
+        public int length;
+        public int flags;
+        public int showCmd;
+        public Point ptMinPosition;
+        public Point ptMaxPosition;
+        public RECT rcNormalPosition;
+    }
+
     // 0x0312 Windows message processor's message number for hot key registered by the RegisterHotKey function
     // https://learn.microsoft.com/en-us/windows/win32/inputdev/wm-hotkey
     private const int WM_HOTKEY = 0x0312;
@@ -84,13 +130,19 @@ public partial class MainForm : Form
     {
         var handle = GetForegroundWindow();
         // TODO: Replace with the new MoveWindow overload
-        var (x, y, width, height) = key switch
+        // var (x, y, width, height) = key switch
+        // {
+        //     Keys.G => (100, 100, 800, 600),
+        //     Keys.H => (400, 400, 600, 600),
+        //     _ => (0, 0, 800, 600),
+        // };
+        // MoveWindow(handle, x, y, width, height, true);
+        var _ = key switch
         {
-            Keys.G => (100, 100, 800, 600),
-            Keys.H => (400, 400, 600, 600),
-            _ => (0, 0, 800, 600),
+            Keys.G => MoveAndResizeWindow(handle, Direction.Horizontal, ResizeTo.Half, 0, 0),
+            Keys.H => MoveAndResizeWindow(handle, Direction.Horizontal, ResizeTo.Half, 1, 0),
+            _ => false,
         };
-        MoveWindow(handle, x, y, width, height, true);
         msgHandler.ShowMessage(
             $"Pressed key: {key} with modifier: {modifier}\n" +
             $"Moving window: {GetCaptionOfActiveWindow(handle)}");
@@ -114,7 +166,7 @@ public partial class MainForm : Form
     /// </summary>
     /// <param name="handle">The handle for the window to be moved and resized</param>
     /// <param name="alignDirection">Direction to align to when moving & resizing</param>
-    /// <param name="resizeTo">What slice of the monitor to resize the window to</param>
+    /// <param name="resizeTo">What horizontal/vertical/both slice of the monitor to resize the window to</param> // TODO: Separate for h and v
     /// <param name="horizontalNth">
     ///     Which slice of the horizontal monitor divisions (form the left) to place window in. Starts at 0.
     ///     e.g. To place the window in the "third horizontal third-th" of the monitor, pass in 2.
@@ -133,11 +185,52 @@ public partial class MainForm : Form
         float customPercentage = 100, MoveType moveType = MoveType.SameMonitor)
     {
         // V2
-        if (moveType != MoveType.SameMonitor) throw new NotImplementedException("Not supported yet");
+        if (moveType != MoveType.SameMonitor || resizeTo == ResizeTo.Custom)
+        {
+            throw new NotImplementedException();
+        }
+        // TODO: Account for start menu - it can be visible or hidden, have variable height, and placed anywhere on the screen
 
-        // TODO
-        throw new NotImplementedException();
+        var screen = Screen.FromHandle(handle);
+        var finalStartX = screen.Bounds.Left;
+        var finalStartY = screen.Bounds.Top;
+        var finalWidth = screen.Bounds.Width;
+        var finalHeight = screen.Bounds.Height;
+
+        if (alignDirection.HasFlag(Direction.Horizontal))
+        {
+            finalStartX += GetStartingXOrY(finalWidth, resizeTo, horizontalNth);
+            finalWidth = GetResizedDimension(finalWidth, resizeTo);
+        }
+        if (alignDirection.HasFlag(Direction.Vertical))
+        {
+            finalStartY += GetStartingXOrY(finalHeight, resizeTo, verticalNth);
+            finalHeight = GetResizedDimension(finalHeight, resizeTo);
+        }
+
+        return MoveWindow(handle, finalStartX, finalStartY, finalWidth, finalHeight, true);
+        // return SetWindowPos(handle, IntPtr.Zero, finalStartX, finalStartY, finalWidth, finalHeight, 0);
+        // var windowPlacement = WINDOWPLACEMENT.Default;
+        // return SetWindowPlacement(handle, ref windowPlacement);
     }
+
+    private static int GetResizedDimension(int inputDimension, ResizeTo resizeTo) => resizeTo switch
+    {
+        ResizeTo.Same => inputDimension,
+        ResizeTo.Half => (int)Math.Round((decimal)inputDimension / 2),
+        ResizeTo.Third => (int)Math.Round((decimal)inputDimension / 3),
+        ResizeTo.Fourths => (int)Math.Round((decimal)inputDimension / 4),
+        _ => throw new NotImplementedException(),
+    };
+
+    private static int GetStartingXOrY(int screenWidthOrHeight, ResizeTo resizeTo, int nthPosition) => resizeTo switch
+    {
+        ResizeTo.Same => 0,
+        ResizeTo.Half => (int)Math.Round((decimal)screenWidthOrHeight * nthPosition / 2),
+        ResizeTo.Third => (int)Math.Round((decimal)screenWidthOrHeight * nthPosition / 3),
+        ResizeTo.Fourths => (int)Math.Round((decimal)screenWidthOrHeight * nthPosition / 4),
+        _ => throw new NotImplementedException(),
+    };
 
     private void MainForm_FormClosing(object? sender, FormClosingEventArgs e)
     {
