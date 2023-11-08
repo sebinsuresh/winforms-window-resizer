@@ -218,7 +218,7 @@ public partial class MainForm : Form
     /// </param>
     /// <param name="moveType">Which monitor to move the window to. Defaults to same monitor</param>
     /// <returns><see cref="true"/> if move and resize succeeds</returns>
-    private static bool MoveAndResizeWindow(
+    private bool MoveAndResizeWindow(
         nint handle, Direction alignDirection, ResizeTo resizeTo, int horizontalNth, int verticalNth,
         float customPercentage = 100, MoveType moveType = MoveType.SameMonitor)
     {
@@ -234,10 +234,10 @@ public partial class MainForm : Form
         }
 
         var screen = Screen.FromHandle(handle);
-        var finalStartX = screen.Bounds.Left;
-        var finalStartY = screen.Bounds.Top;
-        var finalWidth = screen.Bounds.Width;
-        var finalHeight = screen.Bounds.Height;
+        var finalStartX = screen.WorkingArea.Left;
+        var finalStartY = screen.WorkingArea.Top;
+        var finalWidth = screen.WorkingArea.Width;
+        var finalHeight = screen.WorkingArea.Height;
 
         if (alignDirection.HasFlag(Direction.Horizontal))
         {
@@ -250,10 +250,43 @@ public partial class MainForm : Form
             finalHeight = GetResizedDimension(finalHeight, resizeTo);
         }
 
-        return MoveWindow(handle, finalStartX, finalStartY, finalWidth, finalHeight, true);
-        // return SetWindowPos(handle, IntPtr.Zero, finalStartX, finalStartY, finalWidth, finalHeight, 0);
-        // var windowPlacement = WINDOWPLACEMENT.Default;
-        // return SetWindowPlacement(handle, ref windowPlacement);
+        // https://stackoverflow.com/a/34143777
+        // Windows 10 has thin invisible borders on left, right, and bottom, it is used to grip the mouse for resizing.
+        // The borders might look like this: 7,0,7,7 (left, top, right, bottom)
+        GetWindowRect(handle, out Rect rectWithoutBorders);
+        Rect rectWithBorders;
+        if (Environment.OSVersion.Version.Major >= 6)
+        {
+            int size = Marshal.SizeOf(typeof(Rect));
+            _ = DwmGetWindowAttribute(
+                    handle, (int)DwmWindowAttribute.DWMWA_EXTENDED_FRAME_BOUNDS, out rectWithBorders, size);
+        }
+        else
+        {
+            GetWindowRect(handle, out rectWithBorders);
+        }
+
+        var leftBorder = rectWithBorders.Left - rectWithoutBorders.Left;
+        var topBorder = rectWithBorders.Top - rectWithoutBorders.Top;
+        var rightBorder = rectWithoutBorders.Right - rectWithBorders.Right;
+        var bottomBorder = rectWithoutBorders.Bottom - rectWithBorders.Bottom;
+
+        finalStartX -= leftBorder;
+        finalStartY -= topBorder;
+        finalWidth += leftBorder + rightBorder;     // Adjust for moving left
+        finalHeight += topBorder + bottomBorder;    // Adjust for moving up
+
+        msgHandler.ShowMessage(
+            $"Monitor res: {screen.WorkingArea.Width}x{screen.WorkingArea.Height}\n" +
+            $"Monitor top-left: {screen.WorkingArea.Left}, {screen.WorkingArea.Top}\n" +
+            $"App final dims: {finalWidth}x{finalHeight}px\n" +
+            $"App moved to: {finalStartX}, {finalStartY}"
+        );
+
+        return
+            // Need to restore first
+            ShowWindow(handle, ShowWindowCommands.SW_RESTORE) &&
+            MoveWindow(handle, finalStartX, finalStartY, finalWidth, finalHeight, true);
     }
 
     private static int GetResizedDimension(int inputDimension, ResizeTo resizeTo) => resizeTo switch
