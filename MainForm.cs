@@ -174,23 +174,15 @@ public partial class MainForm : Form
     private void HandleRegisteredKeyPress(Keys key, KeyModifier modifier, int hotKeyId)
     {
         var handle = GetForegroundWindow();
-        // TODO: Replace with the new MoveWindow overload
-        // var (x, y, width, height) = key switch
-        // {
-        //     Keys.G => (100, 100, 800, 600),
-        //     Keys.H => (400, 400, 600, 600),
-        //     _ => (0, 0, 800, 600),
-        // };
-        // MoveWindow(handle, x, y, width, height, true);
-        var _ = key switch
+        _ = key switch
         {
             Keys.G => MoveAndResizeWindow(handle, Direction.Horizontal, ResizeTo.Half, 0, 0),
             Keys.H => MoveAndResizeWindow(handle, Direction.Horizontal, ResizeTo.Half, 1, 0),
             _ => false,
         };
-        msgHandler.ShowMessage(
-            $"Pressed key: {key} with modifier: {modifier}\n" +
-            $"Moving window: {GetCaptionOfActiveWindow(handle)}");
+        // msgHandler.ShowMessage(
+        //     $"Pressed key: {key} with modifier: {modifier}\n" +
+        //     $"Moving window: {GetCaptionOfActiveWindow(handle)}");
     }
 
     private static string GetCaptionOfActiveWindow(nint handle)
