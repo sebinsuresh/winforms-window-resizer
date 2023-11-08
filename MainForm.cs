@@ -135,7 +135,7 @@ public partial class MainForm : Form
 
     private void RegisterKeys()
     {
-        var keys = new[] { Keys.G, Keys.H };
+        var keys = new[] { Keys.G, Keys.H, Keys.N };
         foreach (var key in keys)
         {
             if (!RegisterHotKey(this.Handle, HOT_KEY_ID, HOT_KEY_MODIFIER, key.GetHashCode()))
@@ -178,6 +178,7 @@ public partial class MainForm : Form
         {
             Keys.G => MoveAndResizeWindow(handle, Direction.Horizontal, ResizeTo.Half, 0, 0),
             Keys.H => MoveAndResizeWindow(handle, Direction.Horizontal, ResizeTo.Half, 1, 0),
+            Keys.N => MoveAndResizeWindow(handle, 0, ResizeTo.Full, 0, 0),
             _ => false,
         };
         // msgHandler.ShowMessage(
@@ -226,7 +227,11 @@ public partial class MainForm : Form
         {
             throw new NotImplementedException();
         }
-        // TODO: Account for start menu - it can be visible or hidden, have variable height, and placed anywhere on the screen
+
+        if (resizeTo == ResizeTo.Full)
+        {
+            return ShowWindow(handle, ShowWindowCommands.SW_MAXIMIZE);
+        }
 
         var screen = Screen.FromHandle(handle);
         var finalStartX = screen.Bounds.Left;
