@@ -165,13 +165,12 @@ public partial class MainForm : Form
 
         Keys key = (Keys)(((int)m.LParam >> 16) & 0xFFFF);              // The key of the hotkey that was pressed.
         KeyModifier modifier = (KeyModifier)((int)m.LParam & 0xFFFF);   // The modifier of the hotkey that was pressed.
-        int id = m.WParam.ToInt32();                                    // The id of the hotkey that was pressed.
 
-        HandleRegisteredKeyPress(key, modifier, id);
+        HandleRegisteredKeyPress(key, modifier);
         return m;
     }
 
-    private void HandleRegisteredKeyPress(Keys key, KeyModifier modifier, int hotKeyId)
+    private void HandleRegisteredKeyPress(Keys key, KeyModifier modifier)
     {
         var handle = GetForegroundWindow();
         _ = key switch
@@ -203,7 +202,7 @@ public partial class MainForm : Form
     /// Move and resize a window with given window handle
     /// </summary>
     /// <param name="handle">The handle for the window to be moved and resized</param>
-    /// <param name="alignDirection">Direction to align to when moving & resizing</param>
+    /// <param name="alignDirection">Direction to align to when moving and resizing</param>
     /// <param name="resizeTo">What horizontal/vertical/both slice of the monitor to resize the window to</param> // TODO: Separate for h and v
     /// <param name="horizontalNth">
     ///     Which slice of the horizontal monitor divisions (form the left) to place window in. Starts at 0.
