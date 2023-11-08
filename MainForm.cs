@@ -26,50 +26,95 @@ public partial class MainForm : Form
     [DllImport("user32.dll", SetLastError = true)]
     private static extern bool MoveWindow(IntPtr hWnd, int X, int Y, int Width, int Height, bool Repaint);
 
-    // http://www.csharphelper.com/howtos/howto_size_other_application.html
-    [DllImport("user32.dll")]
-    private static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, SetWindowPosFlags uFlags);
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern bool GetWindowRect(IntPtr hWnd, out Rect lpRect);
+
+    [DllImport("dwmapi.dll", SetLastError = true)]
+    private static extern int DwmGetWindowAttribute(IntPtr hwnd, int dwAttribute, out Rect pvAttribute, int cbAttribute);
+
     [Flags]
-    private enum SetWindowPosFlags : uint
+    public enum DwmWindowAttribute : uint
     {
-        SynchronousWindowPosition = 0x4000,
-        DeferErase = 0x2000,
-        DrawFrame = 0x0020,
-        FrameChanged = 0x0020,
-        HideWindow = 0x0080,
-        DoNotActivate = 0x0010,
-        DoNotCopyBits = 0x0100,
-        IgnoreMove = 0x0002,
-        DoNotChangeOwnerZOrder = 0x0200,
-        DoNotRedraw = 0x0008,
-        DoNotReposition = 0x0200,
-        DoNotSendChangingEvent = 0x0400,
-        IgnoreResize = 0x0001,
-        IgnoreZOrder = 0x0004,
-        ShowWindow = 0x0040,
+        DWMWA_NCRENDERING_ENABLED = 1,
+        DWMWA_NCRENDERING_POLICY,
+        DWMWA_TRANSITIONS_FORCEDISABLED,
+        DWMWA_ALLOW_NCPAINT,
+        DWMWA_CAPTION_BUTTON_BOUNDS,
+        DWMWA_NONCLIENT_RTL_LAYOUT,
+        DWMWA_FORCE_ICONIC_REPRESENTATION,
+        DWMWA_FLIP3D_POLICY,
+        DWMWA_EXTENDED_FRAME_BOUNDS,
+        DWMWA_HAS_ICONIC_BITMAP,
+        DWMWA_DISALLOW_PEEK,
+        DWMWA_EXCLUDED_FROM_PEEK,
+        DWMWA_CLOAK,
+        DWMWA_CLOAKED,
+        DWMWA_FREEZE_REPRESENTATION,
+        DWMWA_LAST
     }
 
-    [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
-    static extern bool SetWindowPlacement(IntPtr hWnd, [In] ref WINDOWPLACEMENT lpwndpl);
-
-    [StructLayout(LayoutKind.Sequential)]
-    struct RECT
+    [Serializable, StructLayout(LayoutKind.Sequential)]
+    public struct Rect
     {
-        public int left;
-        public int top;
-        public int right;
-        public int bottom;
+        public int Left;
+        public int Top;
+        public int Right;
+        public int Bottom;
     }
 
-    [StructLayout(LayoutKind.Sequential)]
-    struct WINDOWPLACEMENT
+    private static class ShowWindowCommands
     {
-        public int length;
-        public int flags;
-        public int showCmd;
-        public Point ptMinPosition;
-        public Point ptMaxPosition;
-        public RECT rcNormalPosition;
+        /// <summary>
+        /// Hides the window and activates another window.
+        /// </summary>
+        public const int SW_HIDE = 0;
+        /// <summary>
+        /// Activates and displays a window. If the window is minimized, maximized, or arranged, the system restores it to its original size and position. An application should specify this flag when displaying the window for the first time.
+        /// </summary>
+        public const int SW_NORMAL = 1;
+        /// <summary>
+        /// Activates the window and displays it as a minimized window.
+        /// </summary>
+        public const int SW_SHOWMINIMIZED = 2;
+        /// <summary>
+        /// Activates the window and displays it as a maximized window.
+        /// </summary>
+        public const int SW_MAXIMIZE = 3;
+        /// <summary>
+        /// Displays a window in its most recent size and position. This value is similar to SW_SHOWNORMAL, except that the window is not activated.
+        /// </summary>
+        public const int SW_SHOWNOACTIVATE = 4;
+        /// <summary>
+        /// Activates the window and displays it in its current size and position.
+        /// </summary>
+        public const int SW_SHOW = 5;
+        /// <summary>
+        /// Minimizes the specified window and activates the next top-level window in the Z order.
+        /// </summary>
+        public const int SW_MINIMIZE = 6;
+        /// <summary>
+        /// Displays the window as a minimized window. This value is similar to SW_SHOWMINIMIZED, except the window is not activated.
+        /// </summary>
+        public const int SW_SHOWMINNOACTIVE = 7;
+        /// <summary>
+        /// Displays the window in its current size and position. This value is similar to SW_SHOW, except that the window is not activated.
+        /// </summary>
+        public const int SW_SHOWNA = 8;
+        /// <summary>
+        /// Activates and displays the window. If the window is minimized, maximized, or arranged, the system restores it to its original size and position. An application should specify this flag when restoring a minimized window.
+        /// </summary>
+        public const int SW_RESTORE = 9;
+        /// <summary>
+        /// Sets the show state based on the SW_ value specified in the STARTUPINFO structure passed to the CreateProcess function by the program that started the application.
+        /// </summary>
+        public const int SW_SHOWDEFAULT = 10;
+        /// <summary>
+        /// Minimizes a window, even if the thread that owns the window is not responding. This flag should only be used when minimizing windows from a different thread.
+        /// </summary>
+        public const int SW_FORCEMINIMIZE = 11;
     }
 
     // 0x0312 Windows message processor's message number for hot key registered by the RegisterHotKey function
@@ -234,9 +279,6 @@ public partial class MainForm : Form
 
     private void MainForm_FormClosing(object? sender, FormClosingEventArgs e)
     {
-        // TODO: Remove
-        // MessageBox.Show($"Reason = {e.CloseReason}\nCancel = {e.Cancel}", "FormClosing Event");
-
         // Unregister hotkey with id `hotKeyId` before closing the form.
         // You might want to call this more than once with different id values if you are planning
         // to register more than one hotkey.
