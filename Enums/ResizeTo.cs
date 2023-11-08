@@ -2,7 +2,7 @@ namespace DisplayProject.Enums;
 
 public enum ResizeTo
 {
-    Same,
+    Full,
     Half,
     Third,
     Fourths,

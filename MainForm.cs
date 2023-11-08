@@ -216,7 +216,7 @@ public partial class MainForm : Form
 
     private static int GetResizedDimension(int inputDimension, ResizeTo resizeTo) => resizeTo switch
     {
-        ResizeTo.Same => inputDimension,
+        ResizeTo.Full => inputDimension,
         ResizeTo.Half => (int)Math.Round((decimal)inputDimension / 2),
         ResizeTo.Third => (int)Math.Round((decimal)inputDimension / 3),
         ResizeTo.Fourths => (int)Math.Round((decimal)inputDimension / 4),
@@ -225,7 +225,7 @@ public partial class MainForm : Form
 
     private static int GetStartingXOrY(int screenWidthOrHeight, ResizeTo resizeTo, int nthPosition) => resizeTo switch
     {
-        ResizeTo.Same => 0,
+        ResizeTo.Full => 0,
         ResizeTo.Half => (int)Math.Round((decimal)screenWidthOrHeight * nthPosition / 2),
         ResizeTo.Third => (int)Math.Round((decimal)screenWidthOrHeight * nthPosition / 3),
         ResizeTo.Fourths => (int)Math.Round((decimal)screenWidthOrHeight * nthPosition / 4),
